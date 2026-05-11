@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from typing import Optional
 
 from bson import ObjectId
 from fastapi import APIRouter, HTTPException, UploadFile
@@ -59,3 +60,52 @@ async def upload_orders(file: UploadFile):
             for r in result.rejected
         ],
     }
+
+
+@router.get("")
+async def list_orders(
+    call_status: Optional[str] = None,
+    bucket: Optional[str] = None,
+    action_state: Optional[str] = None,
+    limit: int = 100,
+):
+    query: dict = {}
+    if call_status:
+        query["call_status"] = call_status
+    if bucket:
+        query["bucket"] = bucket
+    if action_state:
+        query["action_state"] = action_state
+    cursor = db.orders().find(query).sort("created_at", -1).limit(limit)
+    docs = await cursor.to_list(length=limit)
+    return {"orders": [_serialize(d) for d in docs], "next_cursor": None}
+
+
+@router.get("/{order_id}")
+async def get_order(order_id: str):
+    try:
+        oid = ObjectId(order_id)
+    except Exception:
+        raise HTTPException(
+            status_code=404,
+            detail={"error": {"code": "ORDER_NOT_FOUND", "message": f"invalid id {order_id}"}},
+        )
+    doc = await db.orders().find_one({"_id": oid})
+    if not doc:
+        raise HTTPException(
+            status_code=404,
+            detail={"error": {"code": "ORDER_NOT_FOUND", "message": "order not found"}},
+        )
+    events_cursor = db.call_events().find({"order_id": oid}).sort("ts", 1).limit(20)
+    events = await events_cursor.to_list(length=20)
+    serialized_events = []
+    for e in events:
+        ev = dict(e)
+        ev["_id"] = str(ev["_id"])
+        ev["order_id"] = str(ev["order_id"])
+        if isinstance(ev.get("ts"), datetime):
+            ev["ts"] = ev["ts"].isoformat()
+        serialized_events.append(ev)
+    out = _serialize(doc)
+    out["events"] = serialized_events
+    return out

@@ -55,3 +55,83 @@ async def test_upload_persists_to_mongo(client, mock_db):
     assert len(docs) == 1
     assert docs[0]["order_id"] == "SNT-6"
     assert docs[0]["call_status"] == "pending"
+
+
+async def test_list_orders_returns_all(client, mock_db):
+    from datetime import datetime, timezone
+    now = datetime.now(timezone.utc)
+    await mock_db["orders"].insert_many([
+        {"order_id": "A", "call_status": "pending", "created_at": now,
+         "customer_name": "x", "customer_phone": "+919999999999",
+         "product": "p", "delivery_slot": "s", "delivery_slot_label": "kal",
+         "address": "a", "pincode": "560001", "payment_type": "COD", "amount": 1,
+         "transcript": [], "extracted_variables": {}, "actions": [],
+         "updated_at": now, "bucket": None, "action_state": None,
+         "bolna_call_id": None, "recording_url": None, "updated_address": None,
+         "reschedule_preference": None},
+        {"order_id": "B", "call_status": "completed", "bucket": "confirmed",
+         "created_at": now, "customer_name": "x", "customer_phone": "+919999999998",
+         "product": "p", "delivery_slot": "s", "delivery_slot_label": "kal",
+         "address": "a", "pincode": "560001", "payment_type": "COD", "amount": 1,
+         "transcript": [], "extracted_variables": {}, "actions": [],
+         "updated_at": now, "action_state": None,
+         "bolna_call_id": None, "recording_url": None, "updated_address": None,
+         "reschedule_preference": None},
+    ])
+    resp = await client.get("/api/orders")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert len(body["orders"]) == 2
+
+
+async def test_list_orders_filters_by_bucket(client, mock_db):
+    from datetime import datetime, timezone
+    now = datetime.now(timezone.utc)
+    base = {"customer_name": "x", "customer_phone": "+919999999999",
+            "product": "p", "delivery_slot": "s", "delivery_slot_label": "kal",
+            "address": "a", "pincode": "560001", "payment_type": "COD", "amount": 1,
+            "transcript": [], "extracted_variables": {}, "actions": [],
+            "updated_at": now, "action_state": None,
+            "bolna_call_id": None, "recording_url": None, "updated_address": None,
+            "reschedule_preference": None, "created_at": now}
+    await mock_db["orders"].insert_many([
+        {**base, "order_id": "A", "call_status": "completed", "bucket": "confirmed"},
+        {**base, "order_id": "B", "call_status": "completed", "bucket": "escalate"},
+    ])
+    resp = await client.get("/api/orders?bucket=confirmed")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert len(body["orders"]) == 1
+    assert body["orders"][0]["order_id"] == "A"
+
+
+async def test_get_order_by_id_includes_events(client, mock_db):
+    from datetime import datetime, timezone
+    from bson import ObjectId
+    now = datetime.now(timezone.utc)
+    oid = ObjectId()
+    await mock_db["orders"].insert_one({
+        "_id": oid, "order_id": "X", "call_status": "pending",
+        "customer_name": "x", "customer_phone": "+919999999999",
+        "product": "p", "delivery_slot": "s", "delivery_slot_label": "kal",
+        "address": "a", "pincode": "560001", "payment_type": "COD", "amount": 1,
+        "transcript": [], "extracted_variables": {}, "actions": [],
+        "created_at": now, "updated_at": now, "bucket": None, "action_state": None,
+        "bolna_call_id": None, "recording_url": None, "updated_address": None,
+        "reschedule_preference": None,
+    })
+    await mock_db["call_events"].insert_one({
+        "order_id": oid, "type": "created", "source": "csv", "payload": {}, "ts": now,
+    })
+    resp = await client.get(f"/api/orders/{oid}")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["order_id"] == "X"
+    assert len(body["events"]) == 1
+
+
+async def test_get_unknown_order_returns_404(client):
+    from bson import ObjectId
+    resp = await client.get(f"/api/orders/{ObjectId()}")
+    assert resp.status_code == 404
+    assert resp.json()["error"]["code"] == "ORDER_NOT_FOUND"
