@@ -104,7 +104,7 @@ No queue, no Celery, no Redis. Bolna calls are non-blocking (we fire-and-forget 
   customer_name: "Ananya Sharma",
   customer_phone: "+919876543210",       // E.164, normalized on ingest
   product: "Snitch Oversized Tee — Olive — L",
-  delivery_slot: "2026-05-12T10:00:00+05:30/13:00:00+05:30",
+  delivery_slot: "2026-05-12T10:00:00+05:30/2026-05-12T13:00:00+05:30",  // ISO 8601 interval
   delivery_slot_label: "kal subah 10 se 1 baje tak",  // Hinglish-rendered for Bolna variable
   address: "B-204, Prestige Acropolis, 100 Ft Road, Indiranagar, Bengaluru, KA",
   pincode: "560038",
@@ -155,11 +155,13 @@ Run on the `extracted_variables` payload after webhook lands:
 
 | Condition                                            | Bucket            |
 |------------------------------------------------------|-------------------|
-| `needs_human == true` OR call had an error flag      | `escalate`        |
+| `wrong_number == true` OR `needs_human == true` OR call had an error flag | `escalate`        |
 | `cod_intent == "cancel"` (only when `payment_type=="COD"`) | `cancel_intent`   |
 | `address_confirmation == "updated"`                  | `address_updated` |
 | `availability == "reschedule"`                       | `rescheduled`     |
 | Identity verified + address confirmed + available + (COD intent confirmed if COD) | `confirmed`       |
+
+`wrong_number=true` is folded into `escalate` because the workflow response is the same: ops needs to look at the order out-of-band (find correct phone, re-trigger the call, or assign to a human). The transcript and `extracted_variables` preserve the specific reason for downstream filtering if needed.
 
 Compound cases (e.g., new address AND new slot) classify to the most-actionable single bucket per priority above; transcript carries both signals; the row action covers the combined update.
 
@@ -216,12 +218,12 @@ Required headers (case-insensitive): `order_id, customer_name, customer_phone, p
 |--------------------------------|---------|-----------------------------------------------------------|
 | `identity_verified`            | boolean | Step 1 yes branch                                         |
 | `wrong_number`                 | boolean | Step 1 wrong-person branch                                |
-| `address_confirmation`         | enum    | `"yes" | "updated" | "not_confirmed"`                  |
+| `address_confirmation`         | enum    | `"yes"` \| `"updated"` \| `"not_confirmed"`               |
 | `updated_address`              | string? | Verbatim if changed; else null                            |
-| `availability`                 | enum    | `"yes" | "reschedule" | "not_confirmed"`               |
-| `reschedule_preference`        | enum    | `"kal_subah" | "kal_shaam" | "parso" | "other" | null`  |
+| `availability`                 | enum    | `"yes"` \| `"reschedule"` \| `"not_confirmed"`            |
+| `reschedule_preference`        | enum    | `"kal_subah"` \| `"kal_shaam"` \| `"parso"` \| `"other"` \| `null` |
 | `reschedule_preference_text`   | string? | Verbatim free text                                        |
-| `cod_intent`                   | enum    | `"confirmed" | "cancel" | "na"`                        |
+| `cod_intent`                   | enum    | `"confirmed"` \| `"cancel"` \| `"na"`                     |
 | `needs_human`                  | boolean | Hostility, confusion, hesitation after retry              |
 | `call_summary`                 | string  | Agent-generated one-liner                                 |
 
@@ -535,9 +537,9 @@ M0 free cluster in ap-south-1. Network access: EC2 elastic IP only. Database `ri
 ### Pre-recording prep (night before)
 
 1. Seed `demo_orders.csv` with **3 rows**:
-   - **Row 1:** your real phone, Snitch COD ₹1,499, slot "kal subah 10-1 baje".
-   - **Row 2:** spare/test number, Snitch prepaid, slot "kal shaam 4-7 baje".
-   - **Row 3:** spare/test number, Snitch COD ₹2,299, slot "parso subah".
+   - **Row 1 (live call target):** your real phone, Snitch COD ₹1,499, slot "kal subah 10-1 baje". Only this row's phone needs to be real — this is the only row we actually dial.
+   - **Row 2 (pre-staged outcome):** any well-formed but unused number (the CSV validator requires E.164 format), Snitch prepaid, slot "kal shaam 4-7 baje".
+   - **Row 3 (pre-staged outcome):** another well-formed unused number, Snitch COD ₹2,299, slot "parso subah".
 2. Dry-run a real Bolna call on Row 1 — verify end-to-end and capture a known-good recording as a Plan B fallback.
 3. Decide pre-staged outcomes via `POST /simulate-outcome`:
    - Row 2 → `address_updated` with believable new-address verbatim.
