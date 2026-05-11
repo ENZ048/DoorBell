@@ -1,19 +1,13 @@
-from httpx import ASGITransport, AsyncClient
-
-from app.main import app
-
-
-async def test_health_returns_ok():
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://test") as client:
-        response = await client.get("/health")
+async def test_health_returns_ok(client):
+    response = await client.get("/health")
     assert response.status_code == 200
-    assert response.json() == {"ok": True, "service": "riya-backend"}
+    body = response.json()
+    assert body["ok"] is True
+    assert body["service"] == "riya-backend"
+    assert body["mongo"] is True
 
 
-async def test_version_endpoint():
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://test") as client:
-        response = await client.get("/api/version")
+async def test_version_endpoint(client):
+    response = await client.get("/api/version")
     assert response.status_code == 200
     assert response.json() == {"version": "0.1.0"}
