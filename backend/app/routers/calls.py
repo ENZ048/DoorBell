@@ -79,6 +79,10 @@ async def _dispatch_one(order_id: ObjectId, doc: dict) -> dict:
         {"order_id": order_id, "type": "call_initiated", "source": "api",
          "payload": {"bolna_call_id": call_id}, "ts": now},
     )
+    fresh = await db.orders().find_one({"_id": order_id})
+    from ..pubsub import bus
+    from ..routers.webhook import _projection
+    await bus.publish({"event": "order.updated", "snapshot": _projection(fresh)})
     return {"call_status": "dialing", "bolna_call_id": call_id}
 
 
