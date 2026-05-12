@@ -30,15 +30,13 @@ def _webhook_url() -> str:
 
 
 def _variables(doc: dict, brand_name: str = "Snitch") -> dict:
-    addr = doc.get("address", "")
-    address_short = addr.split(",")[0] if "," in addr else addr
     return {
         "customer_name": doc.get("customer_name", ""),
         "brand_name": brand_name,
         "order_id": doc.get("order_id", ""),
-        "product": doc.get("product", ""),
-        "delivery_slot_label": doc.get("delivery_slot_label", ""),
-        "address_short": address_short,
+        "product_name": doc.get("product", ""),
+        "delivery_slot": doc.get("delivery_slot_label", ""),
+        "delivery_address": doc.get("address", ""),
         "payment_type": doc.get("payment_type", ""),
         "amount": doc.get("amount", 0),
     }

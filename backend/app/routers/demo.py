@@ -87,19 +87,65 @@ async def simulate_outcome(
         )
 
     now = datetime.now(UTC)
-    extracted = {
-        "identity_verified": True,
-        "wrong_number": False,
-        "address_confirmation": "updated" if req.bucket == "address_updated" else "yes",
-        "availability": "reschedule" if req.bucket == "rescheduled" else "yes",
-        "cod_intent": (
-            "cancel" if req.bucket == "cancel_intent"
-            else ("confirmed" if doc.get("payment_type") == "COD" else "na")
-        ),
-        "needs_human": req.bucket == "escalate",
-        "updated_address": req.updated_address,
-        "reschedule_preference": req.reschedule_preference,
-    }
+
+    # Build synthetic extracted payload per new 8-field schema so that the
+    # classifier would reproduce the requested bucket.
+    if req.bucket == "confirmed":
+        extracted = {
+            "delivery_confirmed": "yes",
+            "address_correct": "yes",
+            "intent": "keep",
+            "escalate_to_human": "false",
+            "reschedule_slot": "",
+            "updated_address": "",
+            "cancel_reason": "",
+            "call_summary": "Delivery confirmed without changes.",
+        }
+    elif req.bucket == "address_updated":
+        extracted = {
+            "delivery_confirmed": "yes",
+            "address_correct": "updated",
+            "updated_address": req.updated_address or "New address not provided",
+            "intent": "keep",
+            "escalate_to_human": "false",
+            "reschedule_slot": "",
+            "cancel_reason": "",
+            "call_summary": "Customer updated delivery address.",
+        }
+    elif req.bucket == "rescheduled":
+        extracted = {
+            "delivery_confirmed": "reschedule",
+            "address_correct": "yes",
+            "intent": "reschedule",
+            "reschedule_slot": req.reschedule_preference or "kal subah",
+            "escalate_to_human": "false",
+            "updated_address": "",
+            "cancel_reason": "",
+            "call_summary": "Customer requested reschedule.",
+        }
+    elif req.bucket == "cancel_intent":
+        extracted = {
+            "intent": "cancel",
+            "cancel_reason": "customer changed mind",
+            "delivery_confirmed": "yes",
+            "address_correct": "yes",
+            "escalate_to_human": "false",
+            "reschedule_slot": "",
+            "updated_address": "",
+            "call_summary": "Customer wants to cancel the order.",
+        }
+    else:  # escalate
+        extracted = {
+            "escalate_to_human": "true",
+            "delivery_confirmed": "no",
+            "intent": "keep",
+            "address_correct": "yes",
+            "reschedule_slot": "",
+            "updated_address": "",
+            "cancel_reason": "",
+            "call_summary": "Customer requested human escalation.",
+        }
+
     transcript = SYNTHETIC_TRANSCRIPTS.get(req.bucket, [])
     await db.orders().update_one(
         {"_id": oid},
@@ -108,8 +154,8 @@ async def simulate_outcome(
             "bucket": req.bucket,
             "transcript": transcript,
             "extracted_variables": extracted,
-            "updated_address": req.updated_address,
-            "reschedule_preference": req.reschedule_preference,
+            "updated_address": extracted.get("updated_address") or None,
+            "reschedule_preference": extracted.get("reschedule_slot") or None,
             "updated_at": now,
         }},
     )

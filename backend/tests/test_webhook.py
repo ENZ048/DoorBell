@@ -32,9 +32,14 @@ async def test_webhook_classifies_confirmed(client, mock_db, monkeypatch):
         "transcript": [{"role": "agent", "text": "Namaste..."}],
         "recording_url": "https://example.com/rec.mp3",
         "extracted_variables": {
-            "identity_verified": True, "wrong_number": False,
-            "address_confirmation": "yes", "availability": "yes",
-            "cod_intent": "confirmed", "needs_human": False,
+            "delivery_confirmed": "yes",
+            "address_correct": "yes",
+            "intent": "keep",
+            "escalate_to_human": "false",
+            "reschedule_slot": "",
+            "updated_address": "",
+            "cancel_reason": "",
+            "call_summary": "Confirmed.",
         },
     }
     resp = await client.post("/webhook/bolna", json=payload)
@@ -52,9 +57,14 @@ async def test_webhook_classifies_cancel_intent(client, mock_db, monkeypatch):
     payload = {
         "call_id": "bolna_b",
         "extracted_variables": {
-            "identity_verified": True, "wrong_number": False,
-            "address_confirmation": "yes", "availability": "yes",
-            "cod_intent": "cancel", "needs_human": False,
+            "delivery_confirmed": "yes",
+            "address_correct": "yes",
+            "intent": "cancel",
+            "escalate_to_human": "false",
+            "reschedule_slot": "",
+            "updated_address": "",
+            "cancel_reason": "customer changed mind",
+            "call_summary": "Customer wants to cancel.",
         },
     }
     resp = await client.post("/webhook/bolna", json=payload)
@@ -104,8 +114,14 @@ async def test_webhook_publishes_to_pubsub(client, mock_db, monkeypatch):
         payload = {
             "call_id": "bolna_e",
             "extracted_variables": {
-                "identity_verified": True, "address_confirmation": "yes",
-                "availability": "yes", "cod_intent": "confirmed",
+                "delivery_confirmed": "yes",
+                "address_correct": "yes",
+                "intent": "keep",
+                "escalate_to_human": "false",
+                "reschedule_slot": "",
+                "updated_address": "",
+                "cancel_reason": "",
+                "call_summary": "Confirmed.",
             },
         }
         await client.post("/webhook/bolna", json=payload)

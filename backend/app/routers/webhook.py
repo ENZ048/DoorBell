@@ -84,7 +84,7 @@ async def bolna_webhook(request: Request, x_bolna_signature: str | None = Header
         "recording_url": recording_url,
         "extracted_variables": extracted,
         "updated_address": extracted.get("updated_address"),
-        "reschedule_preference": extracted.get("reschedule_preference"),
+        "reschedule_preference": extracted.get("reschedule_slot"),
         "updated_at": now,
     }
 
