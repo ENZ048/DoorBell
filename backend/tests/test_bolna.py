@@ -1,6 +1,5 @@
 import httpx
 import pytest
-import respx
 
 from app.bolna import BolnaClient, BolnaError
 

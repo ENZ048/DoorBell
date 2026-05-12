@@ -1,9 +1,12 @@
+from datetime import UTC
+
+
 async def test_upload_inserts_valid_rows(client):
     csv_body = (
-        "order_id,customer_name,customer_phone,product,delivery_slot_label,address,pincode,payment_type,amount\n"
-        "SNT-1,Ananya,+919876543210,Tee,kal subah,addr,560038,COD,1499\n"
-        "SNT-2,Rohit,9876543211,Tee,kal,addr,560001,PREPAID,999\n"
-    ).encode("utf-8")
+        b"order_id,customer_name,customer_phone,product,delivery_slot_label,address,pincode,payment_type,amount\n"
+        b"SNT-1,Ananya,+919876543210,Tee,kal subah,addr,560038,COD,1499\n"
+        b"SNT-2,Rohit,9876543211,Tee,kal,addr,560001,PREPAID,999\n"
+    )
     response = await client.post(
         "/api/orders/upload",
         files={"file": ("orders.csv", csv_body, "text/csv")},
@@ -18,10 +21,10 @@ async def test_upload_inserts_valid_rows(client):
 
 async def test_upload_reports_rejected_rows(client):
     csv_body = (
-        "order_id,customer_name,customer_phone,product,delivery_slot_label,address,pincode,payment_type,amount\n"
-        "SNT-3,X,bad,P,kal,addr,560001,COD,100\n"
-        "SNT-4,Y,+919876543212,P,kal,addr,560001,PREPAID,500\n"
-    ).encode("utf-8")
+        b"order_id,customer_name,customer_phone,product,delivery_slot_label,address,pincode,payment_type,amount\n"
+        b"SNT-3,X,bad,P,kal,addr,560001,COD,100\n"
+        b"SNT-4,Y,+919876543212,P,kal,addr,560001,PREPAID,500\n"
+    )
     response = await client.post(
         "/api/orders/upload",
         files={"file": ("orders.csv", csv_body, "text/csv")},
@@ -47,9 +50,9 @@ async def test_upload_missing_required_column_returns_422(client):
 
 async def test_upload_persists_to_mongo(client, mock_db):
     csv_body = (
-        "order_id,customer_name,customer_phone,product,delivery_slot_label,address,pincode,payment_type,amount\n"
-        "SNT-6,Z,+919876543213,P,kal,addr,560001,COD,777\n"
-    ).encode("utf-8")
+        b"order_id,customer_name,customer_phone,product,delivery_slot_label,address,pincode,payment_type,amount\n"
+        b"SNT-6,Z,+919876543213,P,kal,addr,560001,COD,777\n"
+    )
     await client.post("/api/orders/upload", files={"file": ("o.csv", csv_body, "text/csv")})
     docs = await mock_db["orders"].find().to_list(length=10)
     assert len(docs) == 1
@@ -58,8 +61,8 @@ async def test_upload_persists_to_mongo(client, mock_db):
 
 
 async def test_list_orders_returns_all(client, mock_db):
-    from datetime import datetime, timezone
-    now = datetime.now(timezone.utc)
+    from datetime import datetime
+    now = datetime.now(UTC)
     await mock_db["orders"].insert_many([
         {"order_id": "A", "call_status": "pending", "created_at": now,
          "customer_name": "x", "customer_phone": "+919999999999",
@@ -85,8 +88,8 @@ async def test_list_orders_returns_all(client, mock_db):
 
 
 async def test_list_orders_filters_by_bucket(client, mock_db):
-    from datetime import datetime, timezone
-    now = datetime.now(timezone.utc)
+    from datetime import datetime
+    now = datetime.now(UTC)
     base = {"customer_name": "x", "customer_phone": "+919999999999",
             "product": "p", "delivery_slot": "s", "delivery_slot_label": "kal",
             "address": "a", "pincode": "560001", "payment_type": "COD", "amount": 1,
@@ -106,9 +109,10 @@ async def test_list_orders_filters_by_bucket(client, mock_db):
 
 
 async def test_get_order_by_id_includes_events(client, mock_db):
-    from datetime import datetime, timezone
+    from datetime import datetime
+
     from bson import ObjectId
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     oid = ObjectId()
     await mock_db["orders"].insert_one({
         "_id": oid, "order_id": "X", "call_status": "pending",

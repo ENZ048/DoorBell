@@ -1,10 +1,8 @@
-from datetime import datetime, timezone
-
-import pytest
+from datetime import UTC, datetime
 
 
 def _doc(bucket: str | None = None, action_state: str | None = None):
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     return {
         "order_id": "SNT-1", "customer_name": "x", "customer_phone": "+919999999999",
         "product": "p", "delivery_slot": "s", "delivery_slot_label": "kal",

@@ -1,11 +1,7 @@
 import asyncio
 import hashlib
 import hmac
-import json
-from datetime import datetime, timezone
-
-import pytest
-from bson import ObjectId
+from datetime import UTC, datetime
 
 from app.config import settings
 from app.pubsub import bus
@@ -16,7 +12,7 @@ def _sign(body: bytes, secret: str) -> str:
 
 
 def _base_doc(call_id: str, payment_type: str = "COD") -> dict:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     return {
         "order_id": "SNT-1", "customer_name": "x", "customer_phone": "+919999999999",
         "product": "p", "delivery_slot": "s", "delivery_slot_label": "kal",

@@ -1,7 +1,5 @@
 import asyncio
 
-import pytest
-
 from app.pubsub import PubSub
 
 

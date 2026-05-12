@@ -1,12 +1,10 @@
-from datetime import datetime, timedelta, timezone
-
-import pytest
+from datetime import UTC, datetime, timedelta
 
 from app.sweeper import sweep_stuck_dialing
 
 
 async def test_sweep_marks_stuck_dialing_as_failed(mock_db):
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     stuck = {
         "order_id": "OLD", "call_status": "dialing", "bolna_call_id": "bx",
         "updated_at": now - timedelta(minutes=10),

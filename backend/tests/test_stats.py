@@ -1,11 +1,9 @@
 import uuid
-from datetime import datetime, timezone
-
-import pytest
+from datetime import UTC, datetime
 
 
 def _doc(call_status: str, bucket: str | None = None) -> dict:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     return {
         "order_id": str(uuid.uuid4()), "customer_name": "x", "customer_phone": "+919999999999",
         "product": "p", "delivery_slot": "s", "delivery_slot_label": "kal",

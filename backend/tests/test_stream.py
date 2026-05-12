@@ -7,13 +7,9 @@ We therefore test _event_stream() directly as an async generator, bypassing HTTP
 """
 
 import asyncio
-import json
-
-import pytest
 
 from app.pubsub import bus
-from app.routers.stream import _event_stream, HEARTBEAT_INTERVAL
-
+from app.routers.stream import _event_stream
 
 # ---------------------------------------------------------------------------
 # Helper

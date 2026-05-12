@@ -1,13 +1,10 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import httpx
-import pytest
-import respx
-from bson import ObjectId
 
 
 def _base_order(order_id: str) -> dict:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     return {
         "order_id": order_id,
         "customer_name": "Ananya",

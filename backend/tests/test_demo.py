@@ -1,12 +1,10 @@
-from datetime import datetime, timezone
-
-import pytest
+from datetime import UTC, datetime
 
 from app.config import settings
 
 
 def _doc(call_id: str | None = "bx") -> dict:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     return {
         "order_id": "X", "customer_name": "x", "customer_phone": "+919999999999",
         "product": "p", "delivery_slot": "s", "delivery_slot_label": "kal",
@@ -50,7 +48,7 @@ async def test_reset_clears_orders_and_events(client, mock_db, monkeypatch):
     monkeypatch.setattr(settings, "admin_token", "secret")
     import uuid
     await mock_db["orders"].insert_many([_doc(str(uuid.uuid4())), _doc(str(uuid.uuid4()))])
-    await mock_db["call_events"].insert_one({"order_id": "x", "type": "t", "source": "s", "payload": {}, "ts": datetime.now(timezone.utc)})
+    await mock_db["call_events"].insert_one({"order_id": "x", "type": "t", "source": "s", "payload": {}, "ts": datetime.now(UTC)})
     resp = await client.post("/api/orders/reset", headers={"X-Admin-Token": "secret"})
     assert resp.status_code == 200
     assert (await mock_db["orders"].count_documents({})) == 0
