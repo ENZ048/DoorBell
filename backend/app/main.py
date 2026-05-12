@@ -4,7 +4,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 
 from . import db
-from .routers import calls, orders, webhook
+from .routers import actions, calls, orders, webhook
 
 
 @asynccontextmanager
@@ -39,6 +39,7 @@ def create_app(lifespan_fn=lifespan) -> FastAPI:
     app.include_router(calls.router)
     app.include_router(orders.router)
     app.include_router(webhook.router)
+    app.include_router(actions.router)
     return app
 
 
