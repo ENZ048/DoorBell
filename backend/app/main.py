@@ -11,8 +11,18 @@ from .routers import actions, calls, demo, orders, stats, stream, webhook
 async def lifespan(app: FastAPI):
     await db.connect()
     await db.ensure_indexes()
-    yield
-    await db.disconnect()
+    import asyncio
+    from .sweeper import run_periodic
+    sweeper_task = asyncio.create_task(run_periodic(60))
+    try:
+        yield
+    finally:
+        sweeper_task.cancel()
+        try:
+            await sweeper_task
+        except asyncio.CancelledError:
+            pass
+        await db.disconnect()
 
 
 def create_app(lifespan_fn=lifespan) -> FastAPI:
