@@ -7,7 +7,7 @@ class Settings(BaseSettings):
     bolna_api_key: str = ""
     bolna_agent_id: str = ""
     bolna_webhook_secret: str = ""
-    bolna_base_url: str = "https://api.bolna.dev"
+    bolna_base_url: str = "https://api.bolna.ai"
     admin_token: str = "dev-admin-token"
     public_base_url: str = "http://localhost:8000"
 

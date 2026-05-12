@@ -33,8 +33,11 @@ def _base_order(order_id: str) -> dict:
 
 async def test_trigger_call_marks_dialing(client, mock_db, respx_mock):
     oid = (await mock_db["orders"].insert_one(_base_order("SNT-1"))).inserted_id
-    respx_mock.post("https://api.bolna.dev/v2/calls").mock(
-        return_value=httpx.Response(200, json={"call_id": "bolna_xyz"})
+    respx_mock.post("https://api.bolna.ai/call").mock(
+        return_value=httpx.Response(
+            200,
+            json={"message": "Call queued", "status": "queued", "execution_id": "bolna_xyz"},
+        )
     )
     resp = await client.post(f"/api/orders/{oid}/call")
     assert resp.status_code == 202
@@ -48,7 +51,7 @@ async def test_trigger_call_marks_dialing(client, mock_db, respx_mock):
 
 async def test_trigger_call_handles_bolna_failure(client, mock_db, respx_mock):
     oid = (await mock_db["orders"].insert_one(_base_order("SNT-2"))).inserted_id
-    respx_mock.post("https://api.bolna.dev/v2/calls").mock(
+    respx_mock.post("https://api.bolna.ai/call").mock(
         return_value=httpx.Response(500, text="boom")
     )
     resp = await client.post(f"/api/orders/{oid}/call")
@@ -63,8 +66,11 @@ async def test_call_batch_triggers_multiple(client, mock_db, respx_mock):
     for n in range(3):
         r = await mock_db["orders"].insert_one(_base_order(f"SNT-{n}"))
         ids.append(str(r.inserted_id))
-    respx_mock.post("https://api.bolna.dev/v2/calls").mock(
-        return_value=httpx.Response(200, json={"call_id": "bolna_id"})
+    respx_mock.post("https://api.bolna.ai/call").mock(
+        return_value=httpx.Response(
+            200,
+            json={"message": "Call queued", "status": "queued", "execution_id": "bolna_id"},
+        )
     )
     resp = await client.post("/api/orders/call-batch", json={"order_ids": ids})
     assert resp.status_code == 202
