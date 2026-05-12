@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
 
 from bson import ObjectId
 from fastapi import APIRouter, HTTPException, UploadFile
@@ -32,9 +31,9 @@ async def upload_orders(file: UploadFile):
         raise HTTPException(
             status_code=422,
             detail={"error": {"code": "INVALID_CSV", "message": str(e)}},
-        )
+        ) from e
     inserted_serialized: list[dict] = []
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     for order in result.inserted:
         doc = order.model_dump(mode="json")
         # Ensure proper datetime objects in Mongo (not strings)
@@ -64,9 +63,9 @@ async def upload_orders(file: UploadFile):
 
 @router.get("")
 async def list_orders(
-    call_status: Optional[str] = None,
-    bucket: Optional[str] = None,
-    action_state: Optional[str] = None,
+    call_status: str | None = None,
+    bucket: str | None = None,
+    action_state: str | None = None,
     limit: int = 100,
 ):
     query: dict = {}
@@ -85,11 +84,11 @@ async def list_orders(
 async def get_order(order_id: str):
     try:
         oid = ObjectId(order_id)
-    except Exception:
+    except Exception as exc:
         raise HTTPException(
             status_code=404,
             detail={"error": {"code": "ORDER_NOT_FOUND", "message": f"invalid id {order_id}"}},
-        )
+        ) from exc
     doc = await db.orders().find_one({"_id": oid})
     if not doc:
         raise HTTPException(

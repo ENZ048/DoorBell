@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Header, HTTPException, Request
 
@@ -9,7 +9,7 @@ from .. import db
 from ..auth import verify_bolna_signature
 from ..classifier import classify
 from ..config import settings
-from ..models import Bucket, CallStatus, PaymentType
+from ..models import CallStatus, PaymentType
 from ..pubsub import bus
 
 router = APIRouter(prefix="/webhook", tags=["webhook"])
@@ -41,11 +41,11 @@ async def bolna_webhook(request: Request, x_bolna_signature: str | None = Header
 
     try:
         payload = json.loads(raw)
-    except json.JSONDecodeError:
+    except json.JSONDecodeError as exc:
         raise HTTPException(
             status_code=400,
             detail={"error": {"code": "BAD_JSON", "message": "invalid JSON"}},
-        )
+        ) from exc
 
     call_id = payload.get("call_id") or payload.get("callId") or payload.get("id")
     if not call_id:
@@ -54,7 +54,7 @@ async def bolna_webhook(request: Request, x_bolna_signature: str | None = Header
             detail={"error": {"code": "MISSING_CALL_ID", "message": "call_id required"}},
         )
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     doc = await db.orders().find_one({"bolna_call_id": call_id})
     if not doc:
         await db.call_events().insert_one(

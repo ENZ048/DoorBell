@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from bson import ObjectId
 from fastapi import APIRouter, HTTPException
@@ -45,7 +45,7 @@ def _variables(doc: dict, brand_name: str = "Snitch") -> dict:
 
 
 async def _dispatch_one(order_id: ObjectId, doc: dict) -> dict:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     client = _bolna_client()
     try:
         call_id = await client.create_call(
@@ -66,7 +66,7 @@ async def _dispatch_one(order_id: ObjectId, doc: dict) -> dict:
         raise HTTPException(
             status_code=502,
             detail={"error": {"code": "BOLNA_API_FAILED", "message": str(e)}},
-        )
+        ) from e
     try:
         await db.orders().update_one(
             {"_id": order_id},
@@ -122,11 +122,11 @@ async def trigger_batch(req: BatchRequest):
 async def trigger_call(order_id: str):
     try:
         oid = ObjectId(order_id)
-    except Exception:
+    except Exception as exc:
         raise HTTPException(
             status_code=404,
             detail={"error": {"code": "ORDER_NOT_FOUND", "message": "invalid id"}},
-        )
+        ) from exc
     doc = await db.orders().find_one({"_id": oid})
     if not doc:
         raise HTTPException(

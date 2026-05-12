@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
@@ -20,10 +20,10 @@ async def _event_stream():
         while True:
             try:
                 msg = await asyncio.wait_for(queue.get(), timeout=HEARTBEAT_INTERVAL)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 yield (
                     "event: heartbeat\n"
-                    f"data: {json.dumps({'ts': datetime.now(timezone.utc).isoformat()})}\n\n"
+                    f"data: {json.dumps({'ts': datetime.now(UTC).isoformat()})}\n\n"
                 )
                 continue
             event_name = msg.pop("event", "message")

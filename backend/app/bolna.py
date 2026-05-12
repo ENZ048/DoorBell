@@ -8,7 +8,9 @@ class BolnaError(Exception):
 
 
 class BolnaClient:
-    def __init__(self, api_key: str, base_url: str = "https://api.bolna.dev", timeout: float = 10.0):
+    def __init__(
+        self, api_key: str, base_url: str = "https://api.bolna.dev", timeout: float = 10.0
+    ):
         self.api_key = api_key
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout

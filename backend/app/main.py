@@ -12,6 +12,7 @@ async def lifespan(app: FastAPI):
     await db.connect()
     await db.ensure_indexes()
     import asyncio
+
     from .sweeper import run_periodic
     sweeper_task = asyncio.create_task(run_periodic(60))
     try:

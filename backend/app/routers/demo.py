@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from bson import ObjectId
 from fastapi import APIRouter, Header, HTTPException
@@ -74,11 +74,11 @@ async def simulate_outcome(
         )
     try:
         oid = ObjectId(order_id)
-    except Exception:
+    except Exception as exc:
         raise HTTPException(
             status_code=404,
             detail={"error": {"code": "ORDER_NOT_FOUND", "message": "invalid id"}},
-        )
+        ) from exc
     doc = await db.orders().find_one({"_id": oid})
     if not doc:
         raise HTTPException(
@@ -86,7 +86,7 @@ async def simulate_outcome(
             detail={"error": {"code": "ORDER_NOT_FOUND", "message": "order not found"}},
         )
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     extracted = {
         "identity_verified": True,
         "wrong_number": False,

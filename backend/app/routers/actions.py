@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from bson import ObjectId
 from fastapi import APIRouter, HTTPException
@@ -48,11 +48,11 @@ async def record_action(order_id: str, req: ActionRequest):
     action_state, valid_buckets = ACTION_MAP[req.action]
     try:
         oid = ObjectId(order_id)
-    except Exception:
+    except Exception as exc:
         raise HTTPException(
             status_code=404,
             detail={"error": {"code": "ORDER_NOT_FOUND", "message": "invalid id"}},
-        )
+        ) from exc
     doc = await db.orders().find_one({"_id": oid})
     if not doc:
         raise HTTPException(
@@ -68,7 +68,7 @@ async def record_action(order_id: str, req: ActionRequest):
                               "message": f"action {req.action} not valid for {current_bucket}"}},
         )
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     action_entry = {"action": req.action, "note": req.note, "by": "seller", "ts": now}
     await db.orders().update_one(
         {"_id": oid},
