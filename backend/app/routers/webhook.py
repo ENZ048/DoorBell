@@ -15,6 +15,70 @@ from ..pubsub import bus
 router = APIRouter(prefix="/webhook", tags=["webhook"])
 
 
+def _flatten_bolna_extracted(payload: dict) -> dict:
+    """
+    Flatten Bolna's nested extraction payload into a flat dict of field -> value.
+
+    Bolna's structured output looks like:
+      payload["extracted_data"]["<CategoryName>"]["<field>"] = {
+        "subjective": <free_text_or_empty>,
+        "objective": <pre_defined_value_or_None>,
+        "confidence": float,
+        ...
+      }
+
+    We flatten to: {"<field>": "value", ...} where value = objective if non-None,
+    else subjective if non-empty, else None.
+
+    Also accepts already-flat payloads for resilience:
+      payload["extracted_variables"]["<field>"] = "value"  (flat fallback)
+    """
+    src = payload.get("extracted_data") or payload.get("extracted_variables") or {}
+    flat: dict = {}
+
+    def _extract_field_value(field_obj):
+        """Given a Bolna per-field object with subjective/objective, return the meaningful value."""
+        if not isinstance(field_obj, dict):
+            return field_obj
+        # Bolna shape: prefer objective (pre-defined), fall back to subjective (free text)
+        obj = field_obj.get("objective")
+        if obj is not None and obj != "":
+            return obj
+        subj = field_obj.get("subjective")
+        if subj is not None and subj != "":
+            return subj
+        return None
+
+    if not isinstance(src, dict):
+        return {}
+
+    # Detect whether src is category-nested or already flat
+    sample_value = next(iter(src.values()), None)
+    is_category_nested = isinstance(sample_value, dict) and any(
+        isinstance(v, dict) and ("objective" in v or "subjective" in v)
+        for v in sample_value.values()
+        if isinstance(v, dict)
+    )
+
+    if is_category_nested:
+        for _category_name, category_value in src.items():
+            if not isinstance(category_value, dict):
+                continue
+            for field_name, field_value in category_value.items():
+                flat[field_name] = _extract_field_value(field_value)
+    else:
+        # Flat shape OR per-field-only nested (no category wrapper)
+        for field_name, field_value in src.items():
+            if isinstance(field_value, dict) and (
+                "objective" in field_value or "subjective" in field_value
+            ):
+                flat[field_name] = _extract_field_value(field_value)
+            else:
+                flat[field_name] = field_value
+
+    return flat
+
+
 def _projection(doc: dict) -> dict:
     """Minimal projection sent over SSE."""
     return {
@@ -71,7 +135,7 @@ async def bolna_webhook(request: Request, x_bolna_signature: str | None = Header
         )
         return {"ok": True}
 
-    extracted = payload.get("extracted_variables", {}) or {}
+    extracted = _flatten_bolna_extracted(payload)
     transcript = payload.get("transcript", []) or []
     recording_url = payload.get("recording_url")
     payment_type = PaymentType(doc.get("payment_type", "PREPAID"))

@@ -128,3 +128,97 @@ async def test_webhook_publishes_to_pubsub(client, mock_db, monkeypatch):
         msg = await asyncio.wait_for(q.get(), timeout=1.0)
     assert msg["event"] == "order.updated"
     assert "snapshot" in msg
+
+
+async def test_webhook_flattens_real_bolna_payload(client, mock_db, monkeypatch):
+    """Test against the exact nested shape Bolna actually emits."""
+    monkeypatch.setattr(settings, "bolna_webhook_secret", "")
+    await mock_db["orders"].insert_one(_base_doc("bolna_real"))
+    real_bolna_payload = {
+        "call_id": "bolna_real",
+        "transcript": [],
+        "recording_url": None,
+        "extracted_data": {
+            "RTO": {
+                "delivery_confirmed": {
+                    "subjective": None,
+                    "objective": "yes",
+                    "confidence": 0.98,
+                    "confidence_label": "High",
+                    "reasoning_objective": "Customer confirmed availability.",
+                    "validation": None,
+                },
+                "address_correct": {
+                    "subjective": None,
+                    "objective": "yes",
+                    "confidence": 0.97,
+                    "confidence_label": "High",
+                },
+                "intent": {
+                    "subjective": None,
+                    "objective": "keep",
+                    "confidence": 0.98,
+                    "confidence_label": "High",
+                },
+                "escalate_to_human": {
+                    "subjective": None,
+                    "objective": "false",
+                    "confidence": 0.95,
+                    "confidence_label": "High",
+                },
+                "call_summary": {
+                    "subjective": "Customer confirmed delivery and address. No action needed.",
+                    "objective": None,
+                    "confidence": 0.95,
+                    "confidence_label": "High",
+                },
+                "reschedule_slot": {"subjective": "", "objective": None, "confidence": 0},
+                "updated_address": {"subjective": "", "objective": None, "confidence": 0},
+                "cancel_reason": {"subjective": "", "objective": None, "confidence": 0},
+            }
+        },
+    }
+    resp = await client.post("/webhook/bolna", json=real_bolna_payload)
+    assert resp.status_code == 200
+    doc = await mock_db["orders"].find_one({"bolna_call_id": "bolna_real"})
+    assert doc["call_status"] == "completed"
+    assert doc["bucket"] == "confirmed", f"expected confirmed, got {doc['bucket']}"
+    # Flat extracted_variables should be on the order doc
+    assert doc["extracted_variables"]["delivery_confirmed"] == "yes"
+    assert doc["extracted_variables"]["intent"] == "keep"
+    assert doc["extracted_variables"]["escalate_to_human"] == "false"
+    assert "Customer confirmed delivery" in doc["extracted_variables"]["call_summary"]
+
+
+async def test_webhook_handles_address_updated_real_payload(client, mock_db, monkeypatch):
+    """Address-updated bucket via real Bolna nested payload."""
+    monkeypatch.setattr(settings, "bolna_webhook_secret", "")
+    await mock_db["orders"].insert_one(_base_doc("bolna_addr"))
+    payload = {
+        "call_id": "bolna_addr",
+        "extracted_data": {
+            "RTO": {
+                "delivery_confirmed": {"objective": "yes", "subjective": None, "confidence": 0.9},
+                "address_correct": {"objective": "updated", "subjective": None, "confidence": 0.95},
+                "updated_address": {
+                    "subjective": "A-12, Koramangala 6th Block, Bangalore 560095, near KFC",
+                    "objective": None,
+                    "confidence": 0.95,
+                },
+                "intent": {"objective": "keep", "subjective": None, "confidence": 0.9},
+                "escalate_to_human": {"objective": "false", "subjective": None, "confidence": 0.9},
+                "reschedule_slot": {"subjective": "", "objective": None, "confidence": 0},
+                "cancel_reason": {"subjective": "", "objective": None, "confidence": 0},
+                "call_summary": {
+                    "subjective": "Address changed.",
+                    "objective": None,
+                    "confidence": 0.9,
+                },
+            }
+        },
+    }
+    resp = await client.post("/webhook/bolna", json=payload)
+    assert resp.status_code == 200
+    doc = await mock_db["orders"].find_one({"bolna_call_id": "bolna_addr"})
+    assert doc["bucket"] == "address_updated"
+    assert "Koramangala" in doc["updated_address"]
