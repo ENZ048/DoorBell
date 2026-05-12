@@ -1,0 +1,33 @@
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      - DOMAIN=${DOMAIN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./frontend/dist:/srv:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - api
+
+  api:
+    build: ./backend
+    restart: unless-stopped
+    environment:
+      - MONGODB_URI=${MONGODB_URI}
+      - MONGODB_DB=${MONGODB_DB}
+      - BOLNA_API_KEY=${BOLNA_API_KEY}
+      - BOLNA_AGENT_ID=${BOLNA_AGENT_ID}
+      - BOLNA_WEBHOOK_SECRET=${BOLNA_WEBHOOK_SECRET}
+      - BOLNA_BASE_URL=${BOLNA_BASE_URL:-https://api.bolna.dev}
+      - ADMIN_TOKEN=${ADMIN_TOKEN}
+      - PUBLIC_BASE_URL=${PUBLIC_BASE_URL}
+
+volumes:
+  caddy_data:
+  caddy_config:

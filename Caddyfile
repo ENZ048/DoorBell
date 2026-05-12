@@ -1,0 +1,23 @@
+{$DOMAIN} {
+    encode gzip
+
+    @api path /api/* /webhook/*
+    handle @api {
+        reverse_proxy api:8000
+    }
+
+    handle /stream {
+        reverse_proxy api:8000 {
+            flush_interval -1
+            transport http {
+                read_timeout 0
+            }
+        }
+    }
+
+    handle {
+        root * /srv
+        try_files {path} /index.html
+        file_server
+    }
+}
