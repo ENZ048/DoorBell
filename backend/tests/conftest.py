@@ -5,6 +5,15 @@ from mongomock_motor import AsyncMongoMockClient
 
 from app import db
 from app.main import create_app
+from app.pubsub import bus as _pubsub_bus
+
+
+@pytest.fixture(autouse=True)
+def reset_pubsub():
+    """Clear pubsub subscribers before and after every test to prevent cross-test leakage."""
+    _pubsub_bus._subscribers.clear()
+    yield
+    _pubsub_bus._subscribers.clear()
 
 
 @pytest_asyncio.fixture
