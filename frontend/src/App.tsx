@@ -7,6 +7,8 @@ import { OrderTable } from "./components/OrderTable"
 import { BucketTabs } from "./components/BucketTabs"
 import { OrderDrawer } from "./components/OrderDrawer"
 import { ImpactStrip } from "./components/ImpactStrip"
+import { connectStream } from "./sse"
+import { ConnectionDot } from "./components/ConnectionDot"
 
 export default function App() {
   const setOrders = useStore((s) => s.setOrders)
@@ -16,6 +18,8 @@ export default function App() {
     void api.listOrders().then((r) => setOrders(r.orders))
   }, [setOrders])
 
+  useEffect(() => { connectStream() }, [])
+
   return (
     <div className="min-h-screen bg-brand-primary text-neutral-900 font-sans">
       <TopBar brand="Snitch" onUploadClick={() => setUploadOpen(true)} onDemoClick={() => {}} />
@@ -23,6 +27,9 @@ export default function App() {
         <ImpactStrip />
         <BucketTabs />
         <OrderTable />
+        <div className="pt-2">
+          <ConnectionDot />
+        </div>
       </main>
       <UploadModal open={uploadOpen} onClose={() => setUploadOpen(false)} />
       <OrderDrawer />
