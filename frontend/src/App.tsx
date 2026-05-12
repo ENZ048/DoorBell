@@ -5,6 +5,7 @@ import { TopBar } from "./components/TopBar"
 import { UploadModal } from "./components/UploadModal"
 import { OrderTable } from "./components/OrderTable"
 import { BucketTabs } from "./components/BucketTabs"
+import { OrderDrawer } from "./components/OrderDrawer"
 
 export default function App() {
   const setOrders = useStore((s) => s.setOrders)
@@ -22,6 +23,7 @@ export default function App() {
         <OrderTable />
       </main>
       <UploadModal open={uploadOpen} onClose={() => setUploadOpen(false)} />
+      <OrderDrawer />
     </div>
   )
 }
