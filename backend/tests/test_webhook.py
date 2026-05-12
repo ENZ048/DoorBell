@@ -190,6 +190,41 @@ async def test_webhook_flattens_real_bolna_payload(client, mock_db, monkeypatch)
     assert "Customer confirmed delivery" in doc["extracted_variables"]["call_summary"]
 
 
+async def test_webhook_parses_string_transcript_and_nested_recording(client, mock_db, monkeypatch):
+    monkeypatch.setattr(settings, "bolna_webhook_secret", "")
+    await mock_db["orders"].insert_one(_base_doc("bolna_string_t"))
+    payload = {
+        "call_id": "bolna_string_t",
+        "transcript": (
+            "assistant: Namaste, kya main Ananya se baat kar rahi hoon?\n"
+            "user: Haan bolo\n"
+            "assistant: Address sahi hai?\n"
+            "user: Haan sahi hai\n"
+        ),
+        "telephony_data": {
+            "recording_url": "https://example.com/rec123.mp3",
+        },
+        "extracted_data": {
+            "RTO": {
+                "delivery_confirmed": {"objective": "yes", "subjective": None, "confidence": 0.9},
+                "address_correct": {"objective": "yes", "subjective": None, "confidence": 0.9},
+                "intent": {"objective": "keep", "subjective": None, "confidence": 0.9},
+                "escalate_to_human": {"objective": "false", "subjective": None, "confidence": 0.9},
+            }
+        },
+    }
+    resp = await client.post("/webhook/bolna", json=payload)
+    assert resp.status_code == 200
+    doc = await mock_db["orders"].find_one({"bolna_call_id": "bolna_string_t"})
+    assert doc["bucket"] == "confirmed"
+    assert len(doc["transcript"]) == 4
+    assert doc["transcript"][0]["role"] == "agent"
+    assert "Namaste" in doc["transcript"][0]["text"]
+    assert doc["transcript"][1]["role"] == "customer"
+    assert "Haan bolo" in doc["transcript"][1]["text"]
+    assert doc["recording_url"] == "https://example.com/rec123.mp3"
+
+
 async def test_webhook_handles_address_updated_real_payload(client, mock_db, monkeypatch):
     """Address-updated bucket via real Bolna nested payload."""
     monkeypatch.setattr(settings, "bolna_webhook_secret", "")

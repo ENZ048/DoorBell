@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, Header, HTTPException, Request
@@ -13,6 +14,40 @@ from ..models import CallStatus, PaymentType
 from ..pubsub import bus
 
 router = APIRouter(prefix="/webhook", tags=["webhook"])
+
+
+def _parse_transcript(raw) -> list[dict]:
+    """
+    Bolna sends transcript as a multi-line string with role prefixes like:
+        "assistant: Namaste...
+         user: Haan bolo
+         assistant: ..."
+    Convert to list[{role, speaker_label, text}]. If `raw` is already a list,
+    pass through. If empty/None, return [].
+    """
+    if not raw:
+        return []
+    if isinstance(raw, list):
+        # Already structured
+        return raw
+    if not isinstance(raw, str):
+        return []
+    turns: list[dict] = []
+    # Pattern: capture role at line start, then text up to the next role or end.
+    pattern = re.compile(
+        r"^(assistant|user)\s*:\s*(.*?)(?=^(?:assistant|user)\s*:|\Z)",
+        re.DOTALL | re.MULTILINE,
+    )
+    for match in pattern.finditer(raw):
+        role_raw, text = match.group(1), match.group(2).strip()
+        if not text:
+            continue
+        role = "agent" if role_raw == "assistant" else "customer"
+        turns.append({"role": role, "speaker_label": "", "text": text})
+    # Fallback: if no matches and we have content, store as a single agent turn so it shows.
+    if not turns and raw.strip():
+        turns.append({"role": "agent", "speaker_label": "", "text": raw.strip()})
+    return turns
 
 
 def _flatten_bolna_extracted(payload: dict) -> dict:
@@ -135,9 +170,22 @@ async def bolna_webhook(request: Request, x_bolna_signature: str | None = Header
         )
         return {"ok": True}
 
+    # Skip non-terminal webhook events (e.g. status="initiated") that carry no
+    # extracted_data — classifying an empty dict always falls through to ESCALATE.
+    call_status = payload.get("status", "")
+    if call_status and call_status not in {"completed", "error", "rejected", "cancelled"}:
+        await db.call_events().insert_one(
+            {"order_id": doc["_id"], "type": "webhook_received", "source": "bolna",
+             "payload": payload, "ts": now},
+        )
+        return {"ok": True}
+
     extracted = _flatten_bolna_extracted(payload)
-    transcript = payload.get("transcript", []) or []
-    recording_url = payload.get("recording_url")
+    transcript = _parse_transcript(payload.get("transcript"))
+    recording_url = (
+        payload.get("recording_url")
+        or (payload.get("telephony_data") or {}).get("recording_url")
+    )
     payment_type = PaymentType(doc.get("payment_type", "PREPAID"))
     bucket = classify(extracted, payment_type)
 
