@@ -9,12 +9,10 @@ import { BucketTabs } from "./components/BucketTabs"
 import { OrderDrawer } from "./components/OrderDrawer"
 import { ImpactStrip } from "./components/ImpactStrip"
 import { connectStream } from "./sse"
-import { DemoControlsMenu } from "./components/DemoControlsMenu"
 
 export default function App() {
   const setOrders = useStore((s) => s.setOrders)
   const [uploadOpen, setUploadOpen] = useState(false)
-  const [demoOpen, setDemoOpen] = useState(false)
 
   useEffect(() => {
     void api.listOrders().then((r) => setOrders(r.orders))
@@ -26,11 +24,7 @@ export default function App() {
 
   return (
     <div className="relative min-h-screen page-wash font-sans text-ink-900">
-      <TopBar
-        brand="Snitch"
-        onUploadClick={() => setUploadOpen(true)}
-        onDemoClick={() => setDemoOpen((v) => !v)}
-      />
+      <TopBar brand="Snitch" onUploadClick={() => setUploadOpen(true)} />
 
       <main className="mx-auto max-w-[1320px] px-6 pb-16">
         {/* Hero band */}
@@ -74,7 +68,6 @@ export default function App() {
       </main>
 
       <UploadModal open={uploadOpen} onClose={() => setUploadOpen(false)} />
-      <DemoControlsMenu open={demoOpen} onClose={() => setDemoOpen(false)} />
       <OrderDrawer />
     </div>
   )

@@ -1,13 +1,12 @@
-import { Settings2, Upload } from "lucide-react"
+import { Upload } from "lucide-react"
 import { ConnectionDot } from "./ConnectionDot"
 
 interface Props {
   brand: string
   onUploadClick: () => void
-  onDemoClick: () => void
 }
 
-export function TopBar({ brand, onUploadClick, onDemoClick }: Props) {
+export function TopBar({ brand, onUploadClick }: Props) {
   return (
     <header className="sticky top-0 z-30 border-b border-ink-200/80 bg-brand-primary/85 backdrop-blur supports-[backdrop-filter]:bg-brand-primary/70">
       <div className="mx-auto flex h-14 max-w-[1320px] items-center justify-between px-6">
@@ -54,13 +53,6 @@ export function TopBar({ brand, onUploadClick, onDemoClick }: Props) {
         <div className="flex items-center gap-2">
           <ConnectionDot />
           <span className="mx-1 h-4 w-px bg-ink-200" />
-          <button
-            onClick={onDemoClick}
-            className="inline-flex h-8 items-center gap-1.5 rounded-md border border-ink-200 bg-white px-2.5 text-[13px] font-medium text-ink-700 transition-all hover:border-ink-300 hover:bg-ink-50"
-          >
-            <Settings2 size={14} strokeWidth={1.75} />
-            <span>Demo</span>
-          </button>
           <button
             onClick={onUploadClick}
             className="inline-flex h-8 items-center gap-1.5 rounded-md bg-ink-900 px-3 text-[13px] font-medium text-white shadow-card transition-all hover:bg-ink-800 active:translate-y-[0.5px]"

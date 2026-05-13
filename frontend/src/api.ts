@@ -51,26 +51,6 @@ export const api = {
     })
   },
 
-  simulateOutcome(
-    id: string,
-    bucket: string,
-    adminToken: string,
-    extras?: { updated_address?: string; reschedule_preference?: string },
-  ): Promise<{ ok: true }> {
-    return request(`/api/orders/${id}/simulate-outcome`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "X-Admin-Token": adminToken },
-      body: JSON.stringify({ bucket, ...extras }),
-    })
-  },
-
-  reset(adminToken: string): Promise<{ ok: true }> {
-    return request(`/api/orders/reset`, {
-      method: "POST",
-      headers: { "X-Admin-Token": adminToken },
-    })
-  },
-
   stats(): Promise<Stats> {
     return request<Stats>("/api/stats")
   },
