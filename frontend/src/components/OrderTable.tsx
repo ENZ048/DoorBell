@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react"
-import { CheckCheck, Inbox, Loader2, Upload, X } from "lucide-react"
+import { CheckCheck, Inbox, Loader2, PhoneCall, Upload, X } from "lucide-react"
 import { api } from "../api"
 import { useStore } from "../store"
 import { PRIMARY_ACTION } from "../lib/format"
@@ -17,6 +17,8 @@ export function OrderTable({ onUploadClick }: Props) {
 
   const [bulkConfirming, setBulkConfirming] = useState(false)
   const [bulkBusy, setBulkBusy] = useState(false)
+  const [callAllConfirming, setCallAllConfirming] = useState(false)
+  const [callAllBusy, setCallAllBusy] = useState(false)
 
   const allRows = useMemo(
     () =>
@@ -39,6 +41,13 @@ export function OrderTable({ onUploadClick }: Props) {
     [rows, bulkBucket],
   )
 
+  // "Call all" — global, ignores bucket filter. Targets every pending order
+  // in the queue regardless of what's currently displayed.
+  const pendingTargets = useMemo<Order[]>(
+    () => allRows.filter((o) => o.call_status === "pending"),
+    [allRows],
+  )
+
   async function runBulk() {
     if (!bulkBucket || bulkTargets.length === 0) return
     setBulkBusy(true)
@@ -55,6 +64,24 @@ export function OrderTable({ onUploadClick }: Props) {
       }
     } finally {
       setBulkBusy(false)
+    }
+  }
+
+  async function runCallAll() {
+    if (pendingTargets.length === 0) return
+    setCallAllBusy(true)
+    setCallAllConfirming(false)
+    try {
+      const ids = pendingTargets.map((o) => o._id)
+      // Optimistic: flip each row to "dialing" immediately so the user sees
+      // motion before the backend semaphore drains.
+      for (const id of ids) {
+        upsertOrder({ _id: id, call_status: "dialing" } as Partial<Order> & { _id: string })
+      }
+      await api.triggerBatch(ids)
+      // The webhook + SSE stream will deliver the real state transitions.
+    } finally {
+      setCallAllBusy(false)
     }
   }
 
@@ -106,8 +133,59 @@ export function OrderTable({ onUploadClick }: Props) {
           </span>
         </div>
 
-        {/* Bulk action — only when a single bucket is filtered AND there are unactioned rows */}
-        {bulkBucket && bulkTargets.length > 0 && (
+        <div className="flex items-center gap-1.5">
+          {/* Call all — global; visible whenever pending orders exist */}
+          {pendingTargets.length > 0 && (
+            <div className="flex items-center gap-1.5 animate-fade-in">
+              {callAllConfirming ? (
+                <>
+                  <span className="text-2xs text-ink-600">
+                    Dial{" "}
+                    <span className="font-medium tnum text-ink-900">
+                      {pendingTargets.length}
+                    </span>{" "}
+                    pending order{pendingTargets.length === 1 ? "" : "s"}?
+                  </span>
+                  <button
+                    onClick={runCallAll}
+                    disabled={callAllBusy}
+                    className="inline-flex h-7 items-center gap-1 rounded-md bg-ink-900 px-2.5 text-2xs font-medium text-white shadow-card transition-all hover:bg-ink-800 disabled:opacity-60"
+                  >
+                    {callAllBusy && <Loader2 size={11} className="animate-spin" strokeWidth={2} />}
+                    Confirm
+                  </button>
+                  <button
+                    onClick={() => setCallAllConfirming(false)}
+                    disabled={callAllBusy}
+                    className="inline-flex h-7 w-7 items-center justify-center rounded-md text-ink-500 hover:bg-ink-100 hover:text-ink-900 disabled:opacity-60"
+                    aria-label="Cancel"
+                  >
+                    <X size={13} strokeWidth={2} />
+                  </button>
+                </>
+              ) : (
+                <button
+                  onClick={() => setCallAllConfirming(true)}
+                  disabled={callAllBusy}
+                  className="inline-flex h-7 items-center gap-1.5 rounded-md border border-ink-200 bg-white px-2.5 text-2xs font-medium text-ink-700 transition-all hover:border-ink-300 hover:bg-ink-50 disabled:opacity-60"
+                >
+                  <PhoneCall size={12} strokeWidth={2} />
+                  Call all pending
+                  <span className="tnum rounded bg-ink-100 px-1 text-[10px] text-ink-600">
+                    {pendingTargets.length}
+                  </span>
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Spacer when both buttons are visible */}
+          {pendingTargets.length > 0 && bulkBucket && bulkTargets.length > 0 && (
+            <span className="h-4 w-px bg-ink-200" />
+          )}
+
+          {/* Bulk action — only when a single bucket is filtered AND there are unactioned rows */}
+          {bulkBucket && bulkTargets.length > 0 && (
           <div className="flex items-center gap-1.5 animate-fade-in">
             {bulkConfirming ? (
               <>
@@ -153,7 +231,8 @@ export function OrderTable({ onUploadClick }: Props) {
               </button>
             )}
           </div>
-        )}
+          )}
+        </div>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-left">
