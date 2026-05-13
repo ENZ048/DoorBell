@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { AlertTriangle, CheckCircle2, FileSpreadsheet, Loader2, X } from "lucide-react"
+import { AlertTriangle, CheckCircle2, Download, FileSpreadsheet, Loader2, X } from "lucide-react"
 import { api } from "../api"
 import { useStore } from "../store"
 
@@ -61,6 +61,14 @@ export function UploadModal({ open, onClose }: Props) {
               Required columns: order_id, customer_name, customer_phone, product,
               delivery_slot_label, address, pincode, payment_type, amount.
             </p>
+            <a
+              href="/sample-orders.csv"
+              download="sample-orders.csv"
+              className="mt-2 inline-flex items-center gap-1.5 text-[12.5px] font-medium text-brand-secondary-dark hover:text-brand-secondary"
+            >
+              <Download size={12} strokeWidth={2} />
+              Download sample CSV
+            </a>
           </div>
           <button
             onClick={onClose}
