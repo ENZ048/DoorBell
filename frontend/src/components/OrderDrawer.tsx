@@ -11,7 +11,7 @@ import {
   Sparkles,
   X,
 } from "lucide-react"
-import { api } from "../api"
+import { API_BASE, api } from "../api"
 import { useStore } from "../store"
 import { AudioPlayer } from "./AudioPlayer"
 import {
@@ -318,7 +318,11 @@ function OverviewTab({ order }: { order: Order }) {
           <h3 className="text-2xs font-medium uppercase tracking-[0.08em] text-ink-500">
             Call recording
           </h3>
-          <AudioPlayer src={order.recording_url} />
+          <AudioPlayer
+            src={order.recording_url}
+            downloadHref={`${API_BASE}/api/orders/${order._id}/recording`}
+            downloadFilename={`doorbell-${order.order_id}.mp3`}
+          />
         </section>
       )}
     </div>

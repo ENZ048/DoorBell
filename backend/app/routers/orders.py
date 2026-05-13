@@ -2,8 +2,10 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
+import httpx
 from bson import ObjectId
 from fastapi import APIRouter, HTTPException, UploadFile
+from fastapi.responses import StreamingResponse
 
 from .. import db
 from ..csv_parser import parse_csv
@@ -108,3 +110,52 @@ async def get_order(order_id: str):
     out = _serialize(doc)
     out["events"] = serialized_events
     return out
+
+
+@router.get("/{order_id}/recording")
+async def download_recording(order_id: str):
+    """Proxy the Bolna recording with a Content-Disposition: attachment header
+    so the browser downloads it instead of opening in a tab. Cross-origin
+    `download` attributes on the S3 URL get ignored by browsers, so we stream
+    through our own origin and set the right headers ourselves."""
+    try:
+        oid = ObjectId(order_id)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=404,
+            detail={"error": {"code": "ORDER_NOT_FOUND", "message": "invalid id"}},
+        ) from exc
+    doc = await db.orders().find_one({"_id": oid})
+    if not doc:
+        raise HTTPException(
+            status_code=404,
+            detail={"error": {"code": "ORDER_NOT_FOUND", "message": "order not found"}},
+        )
+    url = doc.get("recording_url")
+    if not url:
+        raise HTTPException(
+            status_code=404,
+            detail={"error": {"code": "NO_RECORDING", "message": "no recording for this order"}},
+        )
+
+    filename = f"doorbell-{doc.get('order_id', order_id)}.mp3"
+    client = httpx.AsyncClient(timeout=30.0)
+
+    async def stream():
+        try:
+            async with client.stream("GET", url) as resp:
+                if resp.status_code >= 400:
+                    return
+                async for chunk in resp.aiter_bytes(64 * 1024):
+                    yield chunk
+        finally:
+            await client.aclose()
+
+    return StreamingResponse(
+        stream(),
+        media_type="audio/mpeg",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Cache-Control": "no-store",
+        },
+    )

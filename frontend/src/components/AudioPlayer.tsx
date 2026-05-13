@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from "react"
-import { Pause, Play, Volume2, VolumeX } from "lucide-react"
+import { Download, Pause, Play, Volume2, VolumeX } from "lucide-react"
 
 interface Props {
   src: string
+  downloadHref?: string
+  downloadFilename?: string
 }
 
 function fmt(s: number): string {
@@ -12,7 +14,7 @@ function fmt(s: number): string {
   return `${m}:${r.toString().padStart(2, "0")}`
 }
 
-export function AudioPlayer({ src }: Props) {
+export function AudioPlayer({ src, downloadHref, downloadFilename }: Props) {
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const barRef = useRef<HTMLDivElement | null>(null)
   const [playing, setPlaying] = useState(false)
@@ -120,6 +122,18 @@ export function AudioPlayer({ src }: Props) {
       >
         {muted ? <VolumeX size={14} strokeWidth={2} /> : <Volume2 size={14} strokeWidth={2} />}
       </button>
+
+      {downloadHref && (
+        <a
+          href={downloadHref}
+          download={downloadFilename || true}
+          aria-label="Download recording"
+          title="Download recording"
+          className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-ink-500 hover:bg-ink-100 hover:text-ink-900"
+        >
+          <Download size={14} strokeWidth={2} />
+        </a>
+      )}
 
       {error && (
         <span className="text-2xs text-red-600 ml-2">{error}</span>
