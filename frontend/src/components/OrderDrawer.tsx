@@ -3,18 +3,17 @@ import {
   AlertOctagon,
   CalendarClock,
   CheckCircle2,
-  ChevronRight,
   Loader2,
   MapPin,
   Package,
   Phone,
-  Play,
   Receipt,
   Sparkles,
   X,
 } from "lucide-react"
 import { api } from "../api"
 import { useStore } from "../store"
+import { AudioPlayer } from "./AudioPlayer"
 import {
   ACTION_STATE_LABEL,
   BUCKET_DOT,
@@ -319,18 +318,7 @@ function OverviewTab({ order }: { order: Order }) {
           <h3 className="text-2xs font-medium uppercase tracking-[0.08em] text-ink-500">
             Call recording
           </h3>
-          <a
-            href={order.recording_url}
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center gap-2 rounded-lg border border-ink-200 bg-white px-3 py-2 text-[13px] font-medium text-ink-800 transition-all hover:border-ink-300 hover:bg-ink-50"
-          >
-            <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-brand-secondary text-white">
-              <Play size={12} strokeWidth={2.5} fill="currentColor" />
-            </span>
-            Play recording
-            <ChevronRight size={14} strokeWidth={2} className="text-ink-400" />
-          </a>
+          <AudioPlayer src={order.recording_url} />
         </section>
       )}
     </div>
