@@ -257,3 +257,96 @@ async def test_webhook_handles_address_updated_real_payload(client, mock_db, mon
     doc = await mock_db["orders"].find_one({"bolna_call_id": "bolna_addr"})
     assert doc["bucket"] == "address_updated"
     assert "Koramangala" in doc["updated_address"]
+
+
+async def test_webhook_no_answer_from_hangup_reason(client, mock_db, monkeypatch):
+    """Bolna's telephony layer reports no_answer; we must mark call_status=no_answer
+    and skip bucket classification."""
+    monkeypatch.setattr(settings, "bolna_webhook_secret", "")
+    await mock_db["orders"].insert_one(_base_doc("bolna_noans"))
+    payload = {
+        "call_id": "bolna_noans",
+        "status": "completed",
+        "transcript": "",
+        "telephony_data": {"hangup_reason": "no_answer", "duration": "0"},
+        "extracted_data": {},
+    }
+    resp = await client.post("/webhook/bolna", json=payload)
+    assert resp.status_code == 200
+    doc = await mock_db["orders"].find_one({"bolna_call_id": "bolna_noans"})
+    assert doc["call_status"] == "no_answer"
+    assert doc["bucket"] is None  # never classified
+
+
+async def test_webhook_no_answer_busy_signal(client, mock_db, monkeypatch):
+    monkeypatch.setattr(settings, "bolna_webhook_secret", "")
+    await mock_db["orders"].insert_one(_base_doc("bolna_busy"))
+    payload = {
+        "call_id": "bolna_busy",
+        "status": "completed",
+        "telephony_data": {"hangup_reason": "user_busy"},
+    }
+    resp = await client.post("/webhook/bolna", json=payload)
+    assert resp.status_code == 200
+    doc = await mock_db["orders"].find_one({"bolna_call_id": "bolna_busy"})
+    assert doc["call_status"] == "no_answer"
+    assert doc["bucket"] is None
+
+
+async def test_webhook_voicemail_treated_as_no_answer(client, mock_db, monkeypatch):
+    monkeypatch.setattr(settings, "bolna_webhook_secret", "")
+    await mock_db["orders"].insert_one(_base_doc("bolna_vm"))
+    payload = {
+        "call_id": "bolna_vm",
+        "status": "completed",
+        "telephony_data": {"hangup_reason": "answered_by_machine"},
+        "extracted_data": {"RTO": {}},
+    }
+    resp = await client.post("/webhook/bolna", json=payload)
+    assert resp.status_code == 200
+    doc = await mock_db["orders"].find_one({"bolna_call_id": "bolna_vm"})
+    assert doc["call_status"] == "no_answer"
+
+
+async def test_webhook_empty_payload_inferred_as_no_answer(client, mock_db, monkeypatch):
+    """When Bolna doesn't set a hangup_reason but extracted_data and transcript
+    are both empty, infer no_answer rather than escalate."""
+    monkeypatch.setattr(settings, "bolna_webhook_secret", "")
+    await mock_db["orders"].insert_one(_base_doc("bolna_empty"))
+    payload = {
+        "call_id": "bolna_empty",
+        "status": "completed",
+        "transcript": "",
+        "extracted_data": {},
+    }
+    resp = await client.post("/webhook/bolna", json=payload)
+    assert resp.status_code == 200
+    doc = await mock_db["orders"].find_one({"bolna_call_id": "bolna_empty"})
+    assert doc["call_status"] == "no_answer"
+    assert doc["bucket"] is None
+
+
+async def test_webhook_real_call_does_not_misfire_no_answer(client, mock_db, monkeypatch):
+    """Even with a non-standard hangup_reason like 'llm_prompted_hangup',
+    if extracted_data has real values, we must NOT mark as no_answer."""
+    monkeypatch.setattr(settings, "bolna_webhook_secret", "")
+    await mock_db["orders"].insert_one(_base_doc("bolna_real_call"))
+    payload = {
+        "call_id": "bolna_real_call",
+        "status": "completed",
+        "transcript": "assistant: Hi\nuser: Yes I'm available\n",
+        "telephony_data": {"hangup_reason": "llm_prompted_hangup"},
+        "extracted_data": {
+            "RTO": {
+                "delivery_confirmed": {"objective": "yes", "subjective": None, "confidence": 0.9},
+                "address_correct":    {"objective": "yes", "subjective": None, "confidence": 0.9},
+                "intent":             {"objective": "keep", "subjective": None, "confidence": 0.9},
+                "escalate_to_human":  {"objective": "false", "subjective": None, "confidence": 0.9},
+            }
+        },
+    }
+    resp = await client.post("/webhook/bolna", json=payload)
+    assert resp.status_code == 200
+    doc = await mock_db["orders"].find_one({"bolna_call_id": "bolna_real_call"})
+    assert doc["call_status"] == "completed"
+    assert doc["bucket"] == "confirmed"

@@ -186,6 +186,50 @@ async def bolna_webhook(request: Request, x_bolna_signature: str | None = Header
         payload.get("recording_url")
         or (payload.get("telephony_data") or {}).get("recording_url")
     )
+
+    # ---- No-answer / unreachable detection ----
+    # If Bolna's telephony layer reports the customer didn't pick up (no_answer,
+    # busy, voicemail, machine_detection, originate_failed, etc.), we record the
+    # call as `no_answer` and SKIP bucket classification. Calling escalate on an
+    # empty extracted_data is misleading — nothing to escalate, nobody talked.
+    hangup_reason_raw = (payload.get("telephony_data") or {}).get("hangup_reason") or ""
+    hangup_reason = str(hangup_reason_raw).lower()
+    # Substring match keeps us robust to provider-specific wording
+    # (e.g. "no_answer", "call_not_answered", "user_busy", "voicemail_machine").
+    NO_ANSWER_NEEDLES = (
+        "no_answer", "no-answer", "not_answered", "not-answered",
+        "busy", "voicemail", "machine_detection", "answered_by_machine",
+        "originate_fail", "rejected", "unreachable", "cancelled_by_caller",
+    )
+    is_no_answer = any(needle in hangup_reason for needle in NO_ANSWER_NEEDLES)
+    # Also infer no_answer when extracted_data is completely empty AND we have
+    # no transcript turns — sometimes Bolna doesn't set hangup_reason explicitly.
+    if not is_no_answer and not extracted and len(transcript) == 0:
+        is_no_answer = True
+
+    if is_no_answer:
+        await db.orders().update_one(
+            {"_id": doc["_id"]},
+            {"$set": {
+                "call_status": CallStatus.NO_ANSWER.value,
+                "transcript": transcript,
+                "recording_url": recording_url,
+                "extracted_variables": extracted,
+                "updated_at": now,
+            }},
+        )
+        await db.call_events().insert_one(
+            {"order_id": doc["_id"], "type": "webhook_received", "source": "bolna",
+             "payload": payload, "ts": now},
+        )
+        await db.call_events().insert_one(
+            {"order_id": doc["_id"], "type": "no_answer", "source": "bolna",
+             "payload": {"hangup_reason": hangup_reason_raw}, "ts": now},
+        )
+        fresh = await db.orders().find_one({"_id": doc["_id"]})
+        await bus.publish({"event": "order.updated", "snapshot": _projection(fresh)})
+        return {"ok": True}
+
     payment_type = PaymentType(doc.get("payment_type", "PREPAID"))
     bucket = classify(extracted, payment_type)
 
