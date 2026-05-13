@@ -1,7 +1,15 @@
 import type { Order, Stats, UploadResponse } from "./types"
 
+// Backend origin. Empty string in dev (Vite proxies /api, /webhook, /stream
+// to localhost:8000). In prod, set VITE_API_BASE_URL=https://api.chatroute.in
+// at build time and the bundle hits that origin directly.
+export const API_BASE: string = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/$/, "")
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(path, { ...init, headers: { ...(init?.headers || {}) } })
+  const res = await fetch(`${API_BASE}${path}`, {
+    ...init,
+    headers: { ...(init?.headers || {}) },
+  })
   if (!res.ok) {
     const body = await res.json().catch(() => ({}))
     throw new Error(body?.error?.message || `${res.status} ${res.statusText}`)

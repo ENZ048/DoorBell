@@ -1,11 +1,13 @@
-{$DOMAIN} {
+# --- Backend (FastAPI behind reverse proxy) ---------------------------------
+{$DOMAIN_API} {
     encode gzip
 
-    @api path /api/* /webhook/*
+    @api path /api/* /webhook/* /health /api/version
     handle @api {
         reverse_proxy api:8000
     }
 
+    # Server-Sent Events: disable proxy buffering, no read timeout.
     handle /stream {
         reverse_proxy api:8000 {
             flush_interval -1
@@ -15,9 +17,25 @@
         }
     }
 
+    # Anything else on the API host responds with a short identity message.
     handle {
-        root * /srv
-        try_files {path} /index.html
-        file_server
+        header Content-Type "text/plain; charset=utf-8"
+        respond "Doorbell API" 200
     }
+}
+
+# --- Frontend (static React build served from /srv) -------------------------
+{$DOMAIN_WEB} {
+    encode gzip
+
+    # Long-cache hashed Vite assets, no-cache for the entry HTML.
+    @assets path /assets/*
+    header @assets Cache-Control "public, max-age=31536000, immutable"
+
+    @html path / /index.html
+    header @html Cache-Control "no-cache, no-store, must-revalidate"
+
+    root * /srv
+    try_files {path} /index.html
+    file_server
 }

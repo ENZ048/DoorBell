@@ -1,9 +1,11 @@
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from . import db
+from .config import settings
 from .routers import actions, calls, demo, orders, stats, stream, webhook
 
 
@@ -28,6 +30,19 @@ async def lifespan(app: FastAPI):
 
 def create_app(lifespan_fn=lifespan) -> FastAPI:
     app = FastAPI(title="Riya Backend", version="0.1.0", lifespan=lifespan_fn)
+
+    # CORS — frontend at doorbell.chatroute.in talks to api.chatroute.in,
+    # different origins. In dev, Vite proxies, so the origin matches.
+    origins = [o.strip() for o in settings.cors_origins.split(",") if o.strip()]
+    if origins:
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=origins,
+            allow_credentials=False,
+            allow_methods=["*"],
+            allow_headers=["*"],
+            expose_headers=["X-Bolna-Signature"],
+        )
 
     @app.exception_handler(HTTPException)
     async def http_exception_handler(request: Request, exc: HTTPException):

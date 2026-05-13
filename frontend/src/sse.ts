@@ -1,4 +1,4 @@
-import { api } from "./api"
+import { API_BASE, api } from "./api"
 import { useStore } from "./store"
 
 let source: EventSource | null = null
@@ -7,7 +7,7 @@ export function connectStream() {
   const store = useStore.getState()
   if (source) source.close()
   store.setConnState("disconnected")
-  source = new EventSource("/stream")
+  source = new EventSource(`${API_BASE}/stream`)
 
   source.onopen = () => {
     useStore.getState().setConnState("connected")

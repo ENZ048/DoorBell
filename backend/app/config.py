@@ -10,6 +10,10 @@ class Settings(BaseSettings):
     bolna_base_url: str = "https://api.bolna.ai"
     admin_token: str = "dev-admin-token"
     public_base_url: str = "http://localhost:8000"
+    # Comma-separated list of allowed CORS origins for the seller dashboard.
+    # In prod: "https://doorbell.chatroute.in". In dev: leave empty to allow
+    # same-origin requests via Vite proxy.
+    cors_origins: str = ""
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 

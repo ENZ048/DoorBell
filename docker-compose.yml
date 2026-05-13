@@ -6,7 +6,8 @@ services:
       - "80:80"
       - "443:443"
     environment:
-      - DOMAIN=${DOMAIN}
+      - DOMAIN_API=${DOMAIN_API}
+      - DOMAIN_WEB=${DOMAIN_WEB}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - ./frontend/dist:/srv:ro
@@ -24,9 +25,10 @@ services:
       - BOLNA_API_KEY=${BOLNA_API_KEY}
       - BOLNA_AGENT_ID=${BOLNA_AGENT_ID}
       - BOLNA_WEBHOOK_SECRET=${BOLNA_WEBHOOK_SECRET}
-      - BOLNA_BASE_URL=${BOLNA_BASE_URL:-https://api.bolna.dev}
+      - BOLNA_BASE_URL=${BOLNA_BASE_URL:-https://api.bolna.ai}
       - ADMIN_TOKEN=${ADMIN_TOKEN}
       - PUBLIC_BASE_URL=${PUBLIC_BASE_URL}
+      - CORS_ORIGINS=${CORS_ORIGINS}
 
 volumes:
   caddy_data:
