@@ -45,8 +45,9 @@ export default function App() {
               Today's delivery queue
             </h1>
             <p className="max-w-[640px] text-[13.5px] text-ink-600">
-              Riya runs a Hinglish confirmation call before each dispatch — addresses,
-              availability, and COD intent — so RTO is caught at the source.
+              Every out-for-delivery order gets a quick confirmation call before
+              dispatch — address, availability, and COD intent — so RTO is caught
+              before the courier leaves the hub.
             </p>
           </div>
 
@@ -67,7 +68,7 @@ export default function App() {
 
         {/* Footer signature */}
         <footer className="mt-10 flex items-center justify-between text-2xs text-ink-400">
-          <span>Riya · Pre-delivery RTO control · v0.1</span>
+          <span>Doorbell · Pre-delivery RTO control · v0.1</span>
           <span className="font-mono">snitch.example.com</span>
         </footer>
       </main>

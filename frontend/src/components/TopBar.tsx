@@ -13,6 +13,7 @@ export function TopBar({ brand, onUploadClick, onDemoClick }: Props) {
       <div className="mx-auto flex h-14 max-w-[1320px] items-center justify-between px-6">
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
+            {/* Doorbell mark — chime curve in a brand tile */}
             <svg
               width="20"
               height="20"
@@ -23,15 +24,21 @@ export function TopBar({ brand, onUploadClick, onDemoClick }: Props) {
             >
               <rect width="20" height="20" rx="5" fill="#11b993" />
               <path
-                d="M6 6h4.5a3 3 0 0 1 0 6H8l3 3M6 6v9"
+                d="M10 5.25c-2.21 0-3.75 1.67-3.75 3.88v1.71L5 12.62h10l-1.25-1.78V9.13c0-2.21-1.54-3.88-3.75-3.88Z"
                 stroke="white"
-                strokeWidth="1.6"
+                strokeWidth="1.4"
                 strokeLinecap="round"
                 strokeLinejoin="round"
               />
+              <path
+                d="M8.75 13.6a1.25 1.25 0 0 0 2.5 0"
+                stroke="white"
+                strokeWidth="1.4"
+                strokeLinecap="round"
+              />
             </svg>
             <span className="text-[15px] font-semibold tracking-tightest text-ink-900">
-              Riya
+              Doorbell
             </span>
             <span className="rounded-full bg-ink-100 px-1.5 py-0.5 text-2xs font-medium tracking-wide text-ink-500">
               v0.1
